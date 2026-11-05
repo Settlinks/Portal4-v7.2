@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal 4 — My property</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/styles.css">
+  <style>.wrap{max-width:1100px;margin:0 auto;padding:24px 16px}.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.tg{display:flex;align-items:center;gap:8px;font-size:.82rem;padding:6px 0}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--g700,#444);border-radius:99px;padding:4px 10px;font-size:.75rem;margin:2px}.tcard{padding:1.1rem;margin-bottom:14px}.muted{color:var(--g400,#888);font-size:.8rem}.resbox{background:var(--ink-soft,#1a1a1a);border:1px dashed var(--g500,#666);border-radius:12px;padding:12px;margin-top:12px;font-size:.85rem}</style>
+</head>
+<body>
+<nav class="navbar">
+  <a href="../en/index.html" class="navbar-brand"><div><div class="navbar-brand-name">Portal 4</div><div class="navbar-brand-sub">My property</div></div></a>
+  <div class="navbar-nav">
+    <a href="../en/residents.html" class="nav-link"><i class="fas fa-building-user"></i> <span>Resident</span></a>
+    <a href="../en/property.html" class="nav-link active"><i class="fas fa-key"></i> <span>My property</span></a>
+    <a href="../en/rentals.html" class="nav-link"><i class="fas fa-building-user"></i> <span>Rentals</span></a>
+  </div>
+  <div style="display:flex;gap:0;border:1.5px solid var(--g700);border-radius:99px;overflow:hidden"><a href="/propiedad.html" style="font-size:.6rem;font-weight:700;padding:5px 9px;text-decoration:none;color:inherit">ES</a><a href="/en/property.html" style="font-size:.6rem;font-weight:700;padding:5px 9px;text-decoration:none;color:inherit">EN</a></div>
+</nav>
+<main class="wrap">
+  <h2>My property: tenants, access and delegates</h2>
+  <p class="muted">You decide what each tenant can see and whether the administration can see their details.</p>
+
+  <h3 style="margin-top:24px">Tenants</h3>
+  <div class="card" style="padding:1.25rem;margin:12px 0">
+    <div class="grid2">
+      <input id="tNom" class="input-field" placeholder="Full name">
+      <input id="tMail" class="input-field" type="email" placeholder="Email">
+      <input id="tTel" class="input-field" placeholder="Phone">
+      <input id="tUni" class="input-field" placeholder="Unit">
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="addTenant()"><i class="fas fa-user-plus"></i> Add tenant</button>
+    <div id="tRes" class="resbox" style="display:none"></div>
+  </div>
+  <div id="tenants"><div class="muted">Loading...</div></div>
+
+  <h3 style="margin-top:32px">Property manager and agents</h3>
+  <p class="muted">Invite a manager for your property or a real-estate agent. Use an existing user (type their ID) or create a new one.</p>
+  <div class="card" style="padding:1.25rem;margin:12px 0">
+    <div class="grid2">
+      <select id="dTipo" class="input-field"><option value="gestor">Property manager</option><option value="agente">Real-estate agent</option></select>
+      <input id="dId" class="input-field" placeholder="Existing user ID (optional)">
+      <input id="dNom" class="input-field" placeholder="Name (new user)">
+      <input id="dMail" class="input-field" type="email" placeholder="Email (new user)">
+      <input id="dTel" class="input-field" placeholder="Phone">
+      <input id="dUni" class="input-field" placeholder="Unit">
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="invite()"><i class="fas fa-paper-plane"></i> Send invitation</button>
+    <div id="dRes" class="resbox" style="display:none"></div>
+  </div>
+  <div id="delegates"><div class="muted">Loading...</div></div>
+</main>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/i18n-en.js"></script>
+<script>
+var S = Session.get();
+if (!S || ['propietario','gestor','admin','presidente','superadmin'].indexOf(S.role) < 0) { location.href = '../en/residents.html'; }
+function A(d){ d = d || {}; d.comunidadId = S.comunidadId; return d; }
+function val(id){ return document.getElementById(id).value.trim(); }
+function ck(id){ return document.getElementById(id).checked; }
+var AMEN = ['Gimnasio','Alberca','Salón de eventos','BBQ','Rooftop'];
+
+var STR = {"noTen": "You have no tenants yet.", "noDel": "No active delegates.", "resetPin": "Reset PIN", "del_": "Delete", "reservas": "Can book amenities", "media": "See unit files", "visitors": "Create visitor passes", "incid": "Report incidents", "amen": "Allowed amenities", "visAdmin": "Administration can see their details", "save": "Save permissions", "saved": "Saved", "need": "Name and email are required", "created": "Tenant created", "uid": "User ID", "sentMail": "The PIN was also emailed. Give these details to the tenant.", "confPin": "Generate a new PIN?", "newPin": "New PIN", "confDel": "Delete this tenant?", "revoke": "Revoke", "needDel": "Type an existing ID, or a name and email for a new user", "invited": "Invitation created", "confRev": "Revoke this access?", "perm": {"inquilinos": "Tenants", "rentas": "Rentals", "media": "Files", "incidencias": "Incidents", "reservas": "Bookings"}};
+if (S && S.unidad) { var u=document.getElementById('tUni'); u.value=S.unidad; var u2=document.getElementById('dUni'); u2.value=S.unidad; if (S.role==='propietario'){u.readOnly=true;u2.readOnly=true;} }
+function perms(r){ try { return JSON.parse(r[13] || '{}'); } catch(e) { return {}; } }
+function box(r, id, label, on){ return '<label class="tg"><input type="checkbox" id="'+id+'_'+esc(r[0])+'" '+(on?'checked':'')+'> '+label+'</label>'; }
+async function load(){ loadTenants(); loadDelegates(); }
+async function loadTenants(){
+  var el=document.getElementById('tenants');
+  try {
+    var r = await apiPost('LEER_USUARIOS', A());
+    var rows=(r||[]).slice(1).filter(function(x){ return x[4]==='inquilino'; });
+    if (!rows.length) { el.innerHTML='<div class="muted">'+STR.noTen+'</div>'; return; }
+    el.innerHTML=rows.map(function(x){
+      var p=perms(x), am=p.amenidades, all=(!am||am==='*'), restr=String(x[1]).indexOf('(')===0;
+      var amen=AMEN.map(function(a){ return '<label class="chip"><input type="checkbox" class="am_'+esc(x[0])+'" value="'+esc(a)+'" '+((all||am.indexOf(a)>-1)?'checked':'')+'> '+esc(a)+'</label>'; }).join('');
+      return '<div class="card tcard"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><strong>'+esc(x[1])+'</strong> <span class="muted">'+esc(x[0])+' · '+esc(x[5])+'</span><br><span class="muted">'+esc(x[2])+' '+esc(x[10])+'</span></div>'
+       +'<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="resetPin(\''+esc(x[0])+'\')"><i class="fas fa-key"></i> '+STR.resetPin+'</button><button class="btn btn-outline btn-sm" onclick="delTenant(\''+esc(x[0])+'\')"><i class="fas fa-trash"></i> '+STR.del_+'</button></div></div>'
+       +'<div class="grid2" style="margin-top:10px">'+box(x,'rs',STR.reservas,x[11]==='Sí')+box(x,'md',STR.media,p.media!==false)+box(x,'vs',STR.visitors,p.visitantes!==false)+box(x,'ic',STR.incid,p.incidencias!==false)+'</div>'
+       +'<div class="muted" style="margin-top:6px">'+STR.amen+'</div><div>'+amen+'</div>'
+       +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px"><label class="tg"><input type="checkbox" id="vis_'+esc(x[0])+'" '+(x[14]!=='No'?'checked':'')+' onchange="setVis(\''+esc(x[0])+'\')"> '+STR.visAdmin+'</label>'
+       +'<button class="btn btn-primary btn-sm" onclick="savePerms(\''+esc(x[0])+'\')"><i class="fas fa-check"></i> '+STR.save+'</button></div></div>';
+    }).join('');
+  } catch(e){ el.innerHTML='<div class="muted">'+esc(e.message)+'</div>'; }
+}
+async function savePerms(id){
+  var am=[].slice.call(document.querySelectorAll('.am_'+id)).filter(function(c){return c.checked;}).map(function(c){return c.value;});
+  try {
+    await apiPost('ACTUALIZAR_PERMISOS', A({id:id, permisos:{media:ck('md_'+id), visitantes:ck('vs_'+id), incidencias:ck('ic_'+id), reservas:ck('rs_'+id), amenidades:(am.length===0||am.length===AMEN.length)?'*':am}}));
+    showToast(STR.saved,'success');
+  } catch(e){ showToast(e.message,'error'); }
+}
+async function setVis(id){ try { await apiPost('ACTUALIZAR_VISIBILIDAD', A({id:id, visible:ck('vis_'+id)})); showToast(STR.saved,'success'); } catch(e){ showToast(e.message,'error'); loadTenants(); } }
+async function addTenant(){
+  if (!val('tNom') || !val('tMail')) { showToast(STR.need,'warning'); return; }
+  try {
+    var r = await apiPost('REGISTRAR_USUARIO', A({nombre:val('tNom'), email:val('tMail'), telefono:val('tTel'), unidad:val('tUni'), rol:'inquilino'}));
+    var b=document.getElementById('tRes'); b.style.display='block';
+    b.innerHTML='<strong>'+STR.created+'</strong><br>'+STR.uid+': <b>'+esc(r.id)+'</b><br>PIN: <b>'+esc(r.pin)+'</b><br><span class="muted">'+STR.sentMail+'</span>';
+    ['tNom','tMail','tTel'].forEach(function(i){document.getElementById(i).value='';}); loadTenants();
+  } catch(e){ showToast(e.message,'error'); }
+}
+async function resetPin(id){ if(!confirm(STR.confPin)) return; try { var r=await apiPost('RESETEAR_PIN', A({id:id})); var b=document.getElementById('tRes'); b.style.display='block'; b.innerHTML='<strong>'+STR.newPin+'</strong><br>'+STR.uid+': <b>'+esc(id)+'</b><br>PIN: <b>'+esc(r.pin)+'</b>'; window.scrollTo(0,0); } catch(e){ showToast(e.message,'error'); } }
+async function delTenant(id){ if(!confirm(STR.confDel)) return; try { await apiPost('ELIMINAR_USUARIO', A({id:id})); loadTenants(); } catch(e){ showToast(e.message,'error'); } }
+async function loadDelegates(){
+  var el=document.getElementById('delegates');
+  try {
+    var r=await apiPost('LEER_DELEGACIONES', A()); var rows=(r||[]).slice(1).filter(function(x){return x[7]==='Activa';});
+    if(!rows.length){ el.innerHTML='<div class="muted">'+STR.noDel+'</div>'; return; }
+    el.innerHTML=rows.map(function(x){ var p={}; try{p=JSON.parse(x[6]);}catch(e){}
+      var tags=Object.keys(p).filter(function(k){return p[k];}).map(function(k){return '<span class="chip">'+esc(STR.perm[k]||k)+'</span>';}).join('');
+      return '<div class="card tcard"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><strong>'+esc(x[4])+'</strong> <span class="muted">'+esc(x[3])+' · '+esc(x[1])+'</span><br><span class="muted">'+esc(x[5])+'</span></div>'
+       +'<button class="btn btn-outline btn-sm" onclick="revoke(\''+esc(x[0])+'\')"><i class="fas fa-ban"></i> '+STR.revoke+'</button></div><div style="margin-top:8px">'+tags+'</div></div>';
+    }).join('');
+  } catch(e){ el.innerHTML='<div class="muted">'+esc(e.message)+'</div>'; }
+}
+async function invite(){
+  var d={unidad:val('dUni'), tipo:val('dTipo')};
+  if (val('dId')) d.delegadoId=val('dId'); else if (val('dMail') && val('dNom')) d.nuevo={nombre:val('dNom'), email:val('dMail'), telefono:val('dTel')}; else { showToast(STR.needDel,'warning'); return; }
+  try {
+    var r=await apiPost('INVITAR_DELEGADO', A(d)); var b=document.getElementById('dRes'); b.style.display='block';
+    b.innerHTML='<strong>'+STR.invited+'</strong><br>'+STR.uid+': <b>'+esc(r.delegadoId)+'</b>'+(r.pin?'<br>PIN: <b>'+esc(r.pin)+'</b><br><span class="muted">'+STR.sentMail+'</span>':'');
+    ['dId','dNom','dMail','dTel'].forEach(function(i){document.getElementById(i).value='';}); loadDelegates();
+  } catch(e){ showToast(e.message,'error'); }
+}
+async function revoke(id){ if(!confirm(STR.confRev)) return; try { await apiPost('REVOCAR_DELEGACION', A({id:id})); loadDelegates(); } catch(e){ showToast(e.message,'error'); } }
+load();
+
+</script>
+</body>
+</html>

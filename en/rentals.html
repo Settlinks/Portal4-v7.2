@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal 4 — Rentals</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/styles.css">
+  <style>.rt-wrap{max-width:1100px;margin:0 auto;padding:24px 16px}.rt-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.rt-table{width:100%;border-collapse:collapse;font-size:.85rem}.rt-table th,.rt-table td{padding:10px;border-bottom:1px solid var(--g200,#E5E5E5);text-align:left}.rt-off{opacity:.5}</style>
+</head>
+<body>
+<nav class="navbar">
+  <a href="../en/index.html" class="navbar-brand"><div><div class="navbar-brand-name">Portal 4</div><div class="navbar-brand-sub">Rentals</div></div></a>
+  <div class="navbar-nav">
+    <a href="../en/admin.html" class="nav-link"><i class="fas fa-gauge-high"></i> <span>Dashboard</span></a>
+    <a href="../en/residents.html" class="nav-link"><i class="fas fa-building-user"></i> <span>Resident</span></a>
+    <a href="../en/rentals.html" class="nav-link active"><i class="fas fa-key"></i> <span>Rentals</span></a>
+  </div>
+  <div style="display:flex;gap:0;border:1.5px solid var(--g700);border-radius:99px;overflow:hidden"><a href="../rentas.html" style="font-size:.6rem;font-weight:700;padding:5px 9px;text-decoration:none;color:inherit">ES</a><a href="./rentals.html" style="font-size:.6rem;font-weight:700;padding:5px 9px;text-decoration:none;color:inherit">EN</a></div>
+</nav>
+<main class="rt-wrap">
+  <h2>Rental properties</h2>
+  <p style="color:var(--g400)">Manage each rental property separately: tenant, rent, lease and visibility.</p>
+  <div class="card" style="padding:1.25rem;margin:16px 0">
+    <div class="rt-form">
+      <input id="fUni" class="input-field" placeholder="Unit">
+      <input id="fInq" class="input-field" placeholder="Tenant">
+      <input id="fMail" class="input-field" type="email" placeholder="Tenant email">
+      <input id="fTel" class="input-field" placeholder="Phone">
+      <input id="fRenta" class="input-field" type="number" min="0" placeholder="Monthly rent">
+      <input id="fDep" class="input-field" type="number" min="0" placeholder="Deposit">
+      <input id="fIni" class="input-field" type="date" title="Lease start">
+      <input id="fFin" class="input-field" type="date" title="Lease end">
+    </div>
+    <textarea id="fNotas" class="input-field" rows="2" placeholder="Notes" style="width:100%"></textarea>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="addRent()"><i class="fas fa-plus"></i> Add rental</button>
+  </div>
+  <div class="card" style="padding:1rem;overflow-x:auto">
+    <table class="rt-table"><thead><tr><th>Unit</th><th>Tenant</th><th>Monthly rent</th><th>Lease</th><th>Status</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="6">Loading...</td></tr></tbody></table>
+  </div>
+</main>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/i18n-en.js"></script>
+<script>
+var S = Session.get();
+if (!S || ['admin','presidente','superadmin','propietario','agente','gestor'].indexOf(S.role) < 0) { location.href = '../en/admin.html'; }
+function A(d){ d = d || {}; d.comunidadId = S.comunidadId; return d; }
+function val(id){ return document.getElementById(id).value.trim(); }
+async function load(){
+  var tb = document.getElementById('rows');
+  try {
+    var r = await apiPost('LEER_RENTAS', A());
+    var rows = (r || []).slice(1);
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="6">No rentals registered yet.</td></tr>'; return; }
+    tb.innerHTML = rows.map(function(x){
+      var off = x[12] === 'No';
+      return '<tr class="'+(off?'rt-off':'')+'"><td>'+esc(x[1])+'</td><td>'+esc(x[4])+'<br><small>'+esc(x[5])+'</small></td><td>'+fmtMXN(x[7])+'</td><td>'+esc(x[9])+' — '+esc(x[10])+'</td><td>'+esc(x[11])+(off?' (hidden)':'')+'</td><td style="white-space:nowrap">'
+        +'<button class="btn btn-outline btn-sm" title="Activate / end" onclick="setStatus(\''+esc(x[0])+'\',\''+(x[11]==='Activa'?'Finalizada':'Activa')+'\')"><i class="fas fa-rotate"></i></button> '
+        +'<button class="btn btn-outline btn-sm" title="Show / hide" onclick="hide(\''+esc(x[0])+'\','+(off?'true':'false')+')"><i class="fas fa-eye'+(off?'':'-slash')+'"></i></button> '
+        +'<button class="btn btn-outline btn-sm" title="Delete" onclick="del(\''+esc(x[0])+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    }).join('');
+  } catch(e){ tb.innerHTML = '<tr><td colspan="6">'+esc(e.message)+'</td></tr>'; }
+}
+async function addRent(){
+  if (!val('fUni')) { showToast('Enter the unit','warning'); return; }
+  try {
+    await apiPost('REGISTRAR_RENTA', A({unidad:val('fUni'),inquilinoNombre:val('fInq'),inquilinoEmail:val('fMail'),inquilinoTelefono:val('fTel'),rentaMensual:val('fRenta'),deposito:val('fDep'),fechaInicio:val('fIni'),fechaFin:val('fFin'),notas:val('fNotas')}));
+    showToast('Rental saved','success'); ['fUni','fInq','fMail','fTel','fRenta','fDep','fIni','fFin','fNotas'].forEach(function(i){document.getElementById(i).value='';}); load();
+  } catch(e){ showToast(e.message,'error'); }
+}
+async function setStatus(id, st){ try { await apiPost('ACTUALIZAR_RENTA', A({id:id,campos:{11:st}})); load(); } catch(e){ showToast(e.message,'error'); } }
+async function hide(id, show){ try { await apiPost('TOGGLE_RENTA', A({id:id,visible:show})); load(); } catch(e){ showToast(e.message,'error'); } }
+async function del(id){ if(!confirm('Delete this rental?')) return; try { await apiPost('ELIMINAR_RENTA', A({id:id})); load(); } catch(e){ showToast(e.message,'error'); } }
+load();
+</script>
+</body>
+</html>
