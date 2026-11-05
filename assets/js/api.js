@@ -19,7 +19,7 @@ var _k=[80,79,82,84,65,76,52,50,48,50,53];
 function _d(b){return b.map(function(v,i){return String.fromCharCode(v^_k[i%_k.length]);}).join('');}
 
 // ▼ REPLACE WITH YOUR ENCODED URL ▼
-var _EU=[39,39,38,53,59,123,109,29,68,91,91,54,38,32,41,102,34,45,95,31,0,6,40,48,61,118,124,45];
+var _EU=[97,5,8,24,39,121,108,64,97,112,101,125,45,40,16,57,21,78,95,82,85,116,98,42,40,44,5,97,80,89,113,86,77,59,41,48,37,6,22,122,31,6,121,82];
 // ▲ REPLACE WITH YOUR ENCODED URL ▲
 
 var API_URL=(function(){try{return _d(_EU);}catch(e){return '';}})();
