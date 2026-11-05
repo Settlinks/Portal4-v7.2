@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal 4 — Amenidades por propiedad</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/styles.css">
+  <style>.wrap{max-width:1100px;margin:0 auto;padding:24px 16px}.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.tg{display:flex;align-items:center;gap:8px;font-size:.82rem;padding:6px 0}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--g700,#444);border-radius:99px;padding:4px 10px;font-size:.75rem;margin:2px}.tcard{padding:1.1rem;margin-bottom:14px}.muted{color:var(--g400,#888);font-size:.8rem}.resbox{background:var(--ink-soft,#1a1a1a);border:1px dashed var(--g500,#666);border-radius:12px;padding:12px;margin-top:12px;font-size:.85rem}</style>
+</head>
+<body>
+<nav class="navbar">
+  <a href="./index.html" class="navbar-brand"><div><div class="navbar-brand-name">Portal 4</div><div class="navbar-brand-sub">Amenidades por propiedad</div></div></a>
+  <div class="navbar-nav">
+    <a href="./admin.html" class="nav-link"><i class="fas fa-building-user"></i> <span>Panel</span></a>
+    <a href="./accesos.html" class="nav-link active"><i class="fas fa-key"></i> <span>Amenidades por propiedad</span></a>
+    <a href="./rentas.html" class="nav-link"><i class="fas fa-building-user"></i> <span>Rentas</span></a>
+  </div>
+  <div style="display:flex;gap:0;border:1.5px solid var(--g700);border-radius:99px;overflow:hidden"><a href="/accesos.html" style="font-size:.6rem;font-weight:700;padding:5px 9px;text-decoration:none;color:inherit">ES</a><a href="/en/access.html" style="font-size:.6rem;font-weight:700;padding:5px 9px;text-decoration:none;color:inherit">EN</a></div>
+</nav>
+<main class="wrap">
+  <h2>Amenidades por propiedad</h2>
+  <p class="muted">Elige a qué amenidades tiene acceso cada unidad. Si están todas marcadas, la unidad puede usar cualquiera.</p>
+  <div id="units" style="margin-top:16px"><div class="muted">Cargando...</div></div>
+</main>
+<script src="./assets/js/api.js"></script>
+<script>
+var S = Session.get();
+if (!S || ['admin','presidente','superadmin'].indexOf(S.role) < 0) { location.href = './admin.html'; }
+function A(d){ d = d || {}; d.comunidadId = S.comunidadId; return d; }
+function val(id){ return document.getElementById(id).value.trim(); }
+function ck(id){ return document.getElementById(id).checked; }
+var AMEN = ['Gimnasio','Alberca','Salón de eventos','BBQ','Rooftop'];
+
+var STR = {"none": "No hay propiedades registradas.", "save": "Guardar", "saved": "Guardado"};
+async function load(){
+  var el=document.getElementById('units');
+  try {
+    var r=await apiPost('LEER_PROPIEDADES', A()); var rows=(r||[]).slice(1);
+    if(!rows.length){ el.innerHTML='<div class="muted">'+STR.none+'</div>'; return; }
+    el.innerHTML=rows.map(function(x,i){
+      var cur=String(x[11]||'').split(',').map(function(s){return s.trim();}).filter(String), all=cur.length===0;
+      var chips=AMEN.map(function(a){ return '<label class="chip"><input type="checkbox" class="u'+i+'" value="'+esc(a)+'" '+((all||cur.indexOf(a)>-1)?'checked':'')+'> '+esc(a)+'</label>'; }).join('');
+      return '<div class="card tcard"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center"><div><strong>'+esc(x[2])+'</strong> <span class="muted">'+esc(x[1])+' · '+esc(x[4])+'</span></div>'
+        +'<button class="btn btn-primary btn-sm" onclick="save('+i+',\''+esc(x[2])+'\')"><i class="fas fa-check"></i> '+STR.save+'</button></div><div style="margin-top:8px">'+chips+'</div></div>';
+    }).join('');
+  } catch(e){ el.innerHTML='<div class="muted">'+esc(e.message)+'</div>'; }
+}
+async function save(i,unit){
+  var sel=[].slice.call(document.querySelectorAll('.u'+i)).filter(function(c){return c.checked;}).map(function(c){return c.value;});
+  try { await apiPost('ACTUALIZAR_AMENIDADES_PROPIEDAD', A({unidad:unit, amenidades:(sel.length===AMEN.length)?[]:sel})); showToast(STR.saved,'success'); }
+  catch(e){ showToast(e.message,'error'); }
+}
+load();
+
+</script>
+</body>
+</html>
